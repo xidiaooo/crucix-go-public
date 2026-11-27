@@ -16,7 +16,6 @@ import (
 )
 
 // 只做服务端需要的 RFC6455 子集：握手、分片、ping/pong、close、背压。
-// 不引第三方库的原因和节点版一致：这里的隧道只需要帧，不需要整个生态。
 
 const (
 	opCont  byte = 0x0
@@ -319,7 +318,6 @@ func (c *wsConn) Close() {
 	})
 }
 
-// ── 帧队列：把读循环和转发循环解耦，同时保住内存上限 ──────────────────────
 type frameQueue struct {
 	mu     sync.Mutex
 	cond   *sync.Cond
