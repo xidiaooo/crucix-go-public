@@ -16,8 +16,6 @@ import (
 	"time"
 )
 
-// 端到端自测：起本地 echo 服务，模拟 xray/sing-box 的客户端行为，
-// 走真实 HTTP 端口验证 VLESS / Trojan / UDP / 分片首包 / 错误凭证。
 
 type testCreds struct {
 	UUID       string `json:"uuid"`
@@ -133,7 +131,6 @@ func (c *wsClient) Read(timeout time.Duration) (byte, []byte, error) {
 	return op, p, nil
 }
 
-// ── 首包构造 ───────────────────────────────────────────────────────────────
 
 func uuidBytes(t *testing.T, uuid string) []byte {
 	b, err := hex.DecodeString(strings.ReplaceAll(uuid, "-", ""))
@@ -146,7 +143,7 @@ func uuidBytes(t *testing.T, uuid string) []byte {
 func vlessHeader(t *testing.T, uuid string, cmd byte, host string, port int, payload []byte) []byte {
 	out := []byte{0}
 	out = append(out, uuidBytes(t, uuid)...)
-	out = append(out, 0) // addons
+	out = append(out, 0)
 	out = append(out, cmd)
 	out = append(out, byte(port>>8), byte(port))
 	ip := net.ParseIP(host).To4()
@@ -258,7 +255,6 @@ func TestTrojanTCP(t *testing.T) {
 	if err := ws.Write(trojanHeader(t, c.UUID, 1, "127.0.0.1", echoPort, []byte("hello-trojan")), opBin); err != nil {
 		t.Fatalf("写失败: %v", err)
 	}
-	// Trojan 没有响应头，第一条数据就是回显
 	_, p, err := ws.Read(3 * time.Second)
 	if err != nil {
 		t.Fatalf("读回显失败: %v", err)
@@ -276,7 +272,6 @@ func TestFragmentedHeader(t *testing.T) {
 	defer ws.Close()
 
 	full := vlessHeader(t, c.UUID, 1, "127.0.0.1", echoPort, []byte("frag"))
-	// 前 5 字节单独一帧：模拟客户端把首包拆开
 	if err := ws.Write(full[:5], opBin); err != nil {
 		t.Fatalf("写失败: %v", err)
 	}
@@ -307,7 +302,6 @@ func TestVLESSOverWSFragments(t *testing.T) {
 	if _, _, err := ws.Read(3 * time.Second); err != nil {
 		t.Fatalf("读响应头失败: %v", err)
 	}
-	// 大包，服务端要按 32KB 分片发回来
 	big := strings.Repeat("x", 200*1024)
 	if err := ws.Write([]byte(big), opBin); err != nil {
 		t.Fatalf("写大包失败: %v", err)
@@ -362,7 +356,6 @@ func TestWrongUUID(t *testing.T) {
 	defer ws.Close()
 	bad := "00000000-0000-4000-8000-000000000000"
 	ws.Write(vlessHeader(t, bad, 1, "127.0.0.1", 9, []byte("x")), opBin)
-	// 服务端应直接关连接（读到 EOF 或 close 帧）
 	_, _, err := ws.Read(2 * time.Second)
 	if err == nil {
 		t.Fatal("错误 UUID 居然没被断开")
@@ -422,7 +415,6 @@ func dialWSRaw(addr, path string) (*wsClient, error) {
 	return &wsClient{conn: conn, br: br}, nil
 }
 
-// 30 条并发、每条 256KB 回环，检查哈希一致 + 服务端内存是否失控
 func TestConcurrentTunnels(t *testing.T) {
 	c := loadTestCreds(t)
 	echoPort := startTCPEcho(t)
