@@ -70,7 +70,6 @@ func (t *tunnel) tooManyFails(ip string) bool {
 	return rec.n >= 20
 }
 
-// handleSubscribe 订阅路由：路径 + token 两项都对才给，错一个字符只回 404。
 func (t *tunnel) handleSubscribe(w http.ResponseWriter, r *http.Request, getenv func(string) string) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Robots-Tag", "noindex")
@@ -127,7 +126,6 @@ func clientIP(r *http.Request) string {
 	return host
 }
 
-// handleWS 接管一条隧道连接：解析首包 → 决定 TCP/UDP → 双向转发。
 func (t *tunnel) handleWS(w http.ResponseWriter, r *http.Request) {
 	if atomic.AddInt32(&t.active, 1) > int32(t.cfg.maxConns) {
 		atomic.AddInt32(&t.active, -1)
@@ -232,8 +230,6 @@ func (t *tunnel) handleWS(w http.ResponseWriter, r *http.Request) {
 func (t *tunnel) run(ws *wsConn, q *frameQueue, h tunnelHeader) {
 	isUDP := (h.Protocol == "vless" && h.Command == 2) || (h.Protocol == "trojan" && h.Command == 3)
 	if isUDP {
-		// Trojan 的 UDP 语义与 VLESS 不同，这里只保证 VLESS 的 UDP，
-		// Trojan UDP（cmd=3）按原实现直接断掉，避免给客户端一个半残的 UDP。
 		if h.Protocol != "vless" {
 			ws.Close()
 			return
@@ -246,7 +242,6 @@ func (t *tunnel) run(ws *wsConn, q *frameQueue, h tunnelHeader) {
 
 func (t *tunnel) relayTCP(ws *wsConn, q *frameQueue, h tunnelHeader) {
 	if h.Protocol == "vless" {
-		// VLESS 响应头：版本 + 0，必须在任何数据之前
 		if err := ws.Send([]byte{h.Version, 0}); err != nil {
 			ws.Close()
 			return
@@ -274,7 +269,6 @@ func (t *tunnel) relayTCP(ws *wsConn, q *frameQueue, h tunnelHeader) {
 		})
 	}
 
-	// 上行：WS → 目标
 	go func() {
 		for {
 			p, ok := q.Pop()
@@ -289,7 +283,6 @@ func (t *tunnel) relayTCP(ws *wsConn, q *frameQueue, h tunnelHeader) {
 		}
 	}()
 
-	// 下行：目标 → WS。conn.Read 阻塞时会把反压传上去，不需要额外队列。
 	buf := make([]byte, 32*1024)
 	for {
 		n, err := conn.Read(buf)
@@ -337,7 +330,6 @@ func (t *tunnel) relayUDP(ws *wsConn, q *frameQueue, h tunnelHeader) {
 		})
 	}
 
-	// 上行：len(2) + payload
 	go func() {
 		var pending []byte
 		for {
