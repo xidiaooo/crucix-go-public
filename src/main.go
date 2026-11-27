@@ -73,17 +73,16 @@ func main() {
 
 	getenv := os.Getenv
 
-	// 先做进程伪装：越早越好，之后不再依赖 os.Args
 	mask := strings.TrimSpace(getenv("PROC_MASK"))
 	if mask == "" {
 		mask = "node server.js"
 	}
 	if !strings.EqualFold(mask, "off") {
 		if os.Getenv("_CM_MASKED") != "1" {
-			maybeReexec(mask)   // 成功就不返回，PID 不变、argv 变成理想值
-			applyProcMask(mask) // exec 失败时的退路
+			maybeReexec(mask)
+			applyProcMask(mask)
 		} else {
-			setComm(mask) // exec 后 comm 会变成 "exe"，这里补回来
+			setComm(mask)
 		}
 	}
 
@@ -219,8 +218,6 @@ func main() {
 	_ = srv.Shutdown(ctx)
 }
 
-// memReclaim：Go 的 GC 不会主动把空闲堆还给系统，压过一轮并发之后
-// RSS 会停在峰值。这里在确认没有活跃隧道连接时归还一次，代价是几毫秒 STW。
 func memReclaim(tun *tunnel, feedOn bool) {
 	tick := time.NewTicker(2 * time.Minute)
 	defer tick.Stop()
