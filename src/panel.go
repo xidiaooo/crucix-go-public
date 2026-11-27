@@ -134,7 +134,6 @@ func (p *panel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	path := r.URL.Path
 
-	// WS 隧道优先：路径必须精确等于 streamPath
 	if path == p.creds.StreamPath && isWebsocketUpgrade(r) {
 		p.tun.handleWS(w, r)
 		return
@@ -312,7 +311,6 @@ func (p *panel) serveStatic(w http.ResponseWriter, path string) {
 	writeBytes(w, 200, ctype, b, "public, max-age=300")
 }
 
-// rssMB 从 /proc/self/statm 读真实 RSS，和 Node 版的口径对得上。
 func rssMB() int {
 	b, err := os.ReadFile("/proc/self/statm")
 	if err != nil {
