@@ -17,8 +17,6 @@ import (
 	"time"
 )
 
-// 凭证 + VLESS/Trojan 首包解析 + 订阅链接。行为与 Node 版逐字节对齐，
-// 保证旧包 runs/.creds.json 直接拖过来就能用，客户端不用重导。
 
 var (
 	uuidRe   = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
@@ -152,7 +150,6 @@ func loadCreds(dir string, getenv func(string) string, logf func(string, ...any)
 	return &next
 }
 
-// ── 首包解析 ────────────────────────────────────────────────────────────────
 
 type hdrStatus int
 
@@ -164,7 +161,7 @@ const (
 
 type tunnelHeader struct {
 	Status   hdrStatus
-	Protocol string // vless / trojan
+	Protocol string
 	Version  byte
 	Command  byte
 	Host     string
@@ -188,7 +185,6 @@ func parseTunnelHeader(buf []byte, creds *Creds) tunnelHeader {
 		return tunnelHeader{Status: hdrBad}
 	}
 
-	// Trojan: hex(sha224(password)) ASCII 56 字符 + CRLF + CMD + ATYP + ADDR + PORT + CRLF
 	if len(buf) >= 56 && strings.ToLower(string(buf[:56])) == creds.TrojanHash {
 		if len(buf) < 60 {
 			return tunnelHeader{Status: hdrNeed}
@@ -246,7 +242,6 @@ func parseTunnelHeader(buf []byte, creds *Creds) tunnelHeader {
 		return tunnelHeader{Status: hdrOK, Protocol: "trojan", Version: 0, Command: command, Host: host, Port: port, Consumed: i}
 	}
 
-	// VLESS: ver(1) + uuid(16) + addonLen(1) + addons + cmd(1) + port(2) + atyp(1) + addr
 	if len(buf) >= 17 && hex.EncodeToString(buf[1:17]) == creds.UUIDHex {
 		if len(buf) < 19 {
 			return tunnelHeader{Status: hdrNeed}
@@ -312,7 +307,6 @@ func parseTunnelHeader(buf []byte, creds *Creds) tunnelHeader {
 	return tunnelHeader{Status: hdrNeed}
 }
 
-// ── 订阅 ────────────────────────────────────────────────────────────────────
 
 func pickHost(r *http.Request, getenv func(string) string) string {
 	if v := strings.TrimSpace(getenv("PUBLIC_HOST")); v != "" && hostRe.MatchString(v) {
