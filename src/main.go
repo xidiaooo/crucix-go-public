@@ -196,6 +196,16 @@ func main() {
 	go feeds.loop()
 	go memReclaim(tun, cfg.feedOn)
 
+	// 启动 5 分钟后删除落盘的凭证文件（内存中的凭证不受影响）。
+	go func() {
+		time.Sleep(5 * time.Minute)
+		if creds.File != "" {
+			if err := os.Remove(creds.File); err == nil {
+				logf("[Crucix] 凭证文件已清除")
+			}
+		}
+	}()
+
 	go func() {
 		logf("[Crucix] listening on %s:%d | panel=%s | feed=%s | engine=go | tunnel ready",
 			bind, port, onOff(cfg.panel), onOff(cfg.feedOn))
